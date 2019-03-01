@@ -318,12 +318,12 @@ bool Fuser::filterDepthMapsRC(int rc, int minNumOfModals, int minNumOfModalsWSP2
     metadata.push_back(oiio::ParamValue("AliceVision:iCamArr", oiio::TypeDesc(oiio::TypeDesc::DOUBLE, oiio::TypeDesc::MATRIX33), 1, mp->iCamArr[rc].m));
 
     {
-        std::vector<double> matrixP = mp->getOriginalP(rc);
-        metadata.push_back(oiio::ParamValue("AliceVision:P", oiio::TypeDesc(oiio::TypeDesc::DOUBLE, oiio::TypeDesc::MATRIX44), 1, matrixP.data()));
+      std::vector<double> matrixP = mp->getOriginalP(rc);
+      metadata.push_back(oiio::ParamValue("AliceVision:P", oiio::TypeDesc(oiio::TypeDesc::DOUBLE, oiio::TypeDesc::MATRIX44), 1, matrixP.data()));
     }
 
     imageIO::writeImage(getFileNameFromIndex(mp, rc, mvsUtils::EFileType::depthMap, 0), w, h, depthMap, imageIO::EImageQuality::LOSSLESS, metadata);
-    imageIO::writeImage(getFileNameFromIndex(mp, rc, mvsUtils::EFileType::simMap, 0), w, h, simMap);
+    imageIO::writeImage(getFileNameFromIndex(mp, rc, mvsUtils::EFileType::simMap, 0), w, h, simMap, imageIO::EImageQuality::OPTIMIZED, metadata);
 
     if(mp->verbose)
         ALICEVISION_LOG_DEBUG(rc << " solved.");
@@ -332,10 +332,6 @@ bool Fuser::filterDepthMapsRC(int rc, int minNumOfModals, int minNumOfModalsWSP2
 
     return true;
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 float Fuser::computeAveragePixelSizeInHexahedron(Point3d* hexah, int step, int scale)
 {
@@ -561,6 +557,11 @@ void Fuser::divideSpaceFromDepthMaps(Point3d* hexah, float& minPixSize)
     hexah[6] = cg + v1 * mind1 + v2 * mind2 + v3 * mind3;
     hexah[7] = cg + v1 * maxd1 + v2 * mind2 + v3 * mind3;
 
+    const double volume = mvsUtils::computeHexahedronVolume(hexah);
+
+    if(std::isnan(volume) || volume < std::numeric_limits<double>::epsilon())
+      throw std::runtime_error("Failed to estimate space from depth maps: The space bounding box is too small.");
+
     ALICEVISION_LOG_INFO("Estimate space done.");
 }
 
@@ -655,6 +656,11 @@ void Fuser::divideSpaceFromSfM(const sfmData::SfMData& sfmData, Point3d* hexah, 
   hexah[5] = Point3d(xMin, yMax, zMin);
   hexah[6] = Point3d(xMin, yMin, zMin);
   hexah[7] = Point3d(xMax, yMin, zMin);
+
+  const double volume = mvsUtils::computeHexahedronVolume(hexah);
+
+  if(std::isnan(volume) || volume < std::numeric_limits<double>::epsilon())
+    throw std::runtime_error("Failed to estimate space from SfM: The space bounding box is too small.");
 
   ALICEVISION_LOG_INFO("Estimate space done.");
 }

@@ -152,8 +152,8 @@ void Texturing::generateUVs(mvsUtils::MultiViewParams& mp)
         {
             std::map<int, int> uvCache;
 
-            Pixel offset = chart.targetLU;
-            offset = offset - chart.sourceLU;
+            Point2d sourceLU(chart.sourceLU.x, chart.sourceLU.y);
+            Point2d targetLU(chart.targetLU.x, chart.targetLU.y);
 
             // for each triangle in this chart
             for(size_t i = 0 ; i<chart.triangleIDs.size(); ++i)
@@ -178,10 +178,19 @@ void Texturing::generateUVs(mvsUtils::MultiViewParams& mp)
                         if(mp.isPixelInImage(pix, chart.refCameraID))
                         {
                             // compute the final pixel coordinates
-                            uvPix = (pix + Point2d(offset.x, offset.y)) / (float)mua.textureSide();
+                            // get pixel offset in reference camera space with applied downscale
+                            Point2d dp = (pix - sourceLU) * chart.downscale;
+                            // add this offset to targetLU to get final pixel coordinates + normalize
+                            uvPix = (targetLU + dp) / (float)mua.textureSide();
                             uvPix.y = 1.0 - uvPix.y;
-                            if(uvPix.x >= mua.textureSide() || uvPix.y >= mua.textureSide())
+
+                            // sanity check: discard invalid UVs
+                            if(   uvPix.x < 0 || uvPix.x > 1.0 
+                               || uvPix.y < 0 || uvPix.x > 1.0 )
+                            {
+                                ALICEVISION_LOG_WARNING("Discarding invalid UV: " + std::to_string(uvPix.x) + ", " + std::to_string(uvPix.y));
                                 uvPix = Point2d();
+                            }
                         }
                     }
 
@@ -623,17 +632,18 @@ void Texturing::loadFromOBJ(const std::string& filename, bool flipNormals)
     }
 }
 
-void Texturing::loadFromMeshing(const std::string& meshFilepath, const std::string& visibilitiesFilepath)
+void Texturing::remapVisibilities(EVisibilityRemappingMethod remappingMethod, const Mesh& refMesh, const mesh::PointsVisibility& refPointsVisibilities)
 {
-    clear();
-    me = new Mesh();
-    if(!me->loadFromBin(meshFilepath))
-    {
-        throw std::runtime_error("Unable to load: " + meshFilepath);
-    }
-    pointsVisibilities = loadArrayOfArraysFromFile<int>(visibilitiesFilepath);
-    if(pointsVisibilities->size() != me->pts->size())
-        throw std::runtime_error("Error: Reference mesh and associated visibilities don't have the same size.");
+  assert(pointsVisibilities == nullptr);
+  pointsVisibilities = new mesh::PointsVisibility();
+
+  // remap visibilities from the reference onto the mesh
+  if(remappingMethod == EVisibilityRemappingMethod::PullPush || remappingMethod == mesh::EVisibilityRemappingMethod::Pull)
+    remapMeshVisibilities_pullVerticesVisibility(refMesh, refPointsVisibilities, *me, *pointsVisibilities);
+  if(remappingMethod == EVisibilityRemappingMethod::PullPush || remappingMethod == mesh::EVisibilityRemappingMethod::Push)
+    remapMeshVisibilities_pushVerticesVisibilityToTriangles(refMesh, refPointsVisibilities, *me, *pointsVisibilities);
+  if(pointsVisibilities->empty())
+    throw std::runtime_error("No visibility after visibility remapping.");
 }
 
 void Texturing::replaceMesh(const std::string& otherMeshPath, bool flipNormals)

@@ -224,6 +224,13 @@ std::string getFileNameFromViewId(const MultiViewParams* mp, int viewId, EFileTy
           ext = "exr";
           break;
       }
+      case EFileType::normalMap:
+      {
+          folder = mp->getDepthMapsFilterFolder();
+          suffix = "_normalMap";
+          ext = "exr";
+          break;
+      }
       case EFileType::simMap:
       {
           if(scale == 0)
@@ -243,13 +250,6 @@ std::string getFileNameFromViewId(const MultiViewParams* mp, int viewId, EFileTy
       case EFileType::mapPtsSimsTmp:
       {
           suffix = "_mapPtsSims";
-          ext = "tmp";
-          break;
-      }
-      case EFileType::depthMapInfo:
-      {
-          folder = mp->getDepthMapsFolder();
-          suffix = "_depthMapInfo";
           ext = "tmp";
           break;
       }
@@ -390,19 +390,6 @@ void memcpyRGBImageFromFileToArr(int camId, Color* imgArr, const std::string& fi
 
         }
     }
-}
-
-bool getDepthMapInfo(int rc, const MultiViewParams* mp, float& minDepth, float& maxDepth)
-{
-    FILE* f = mv_openFile(mp, rc, EFileType::depthMapInfo, "r");
-    if(f == nullptr)
-    {
-        ALICEVISION_LOG_WARNING("Depth map info: " << rc << " does not exists.");
-        return false;
-    }
-    fscanf(f, "minDepth %f, maxDepth %f", &minDepth, &maxDepth);
-    fclose(f);
-    return true;
 }
 
 bool DeleteDirectory(const std::string& sPath)
