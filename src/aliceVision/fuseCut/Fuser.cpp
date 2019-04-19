@@ -659,6 +659,39 @@ void Fuser::divideSpaceFromSfM(const sfmData::SfMData& sfmData, Point3d* hexah, 
   ALICEVISION_LOG_INFO("Estimate space done.");
 }
 
+void Fuser::divedeSpaceFromPoints(const std::vector<Point3d>& pts, Point3d * hexah)
+{
+	double xMin; double yMin; double zMin; double xMax; double yMax; double zMax;
+	if (pts.empty()) return;
+	xMin = xMax = pts[0].x;
+	yMin = yMax = pts[0].y;
+	zMin = zMax = pts[0].z;
+
+	for(size_t i = 0 ; i < pts.size(); ++i)
+	{
+		const double x = pts[i].x;
+        const double y = pts[i].y;
+        const double z = pts[i].z;
+		xMin = std::min(xMin, x);
+		yMin = std::min(yMin, y);
+		zMin = std::min(zMin, z);
+		xMax = std::max(xMax, x);
+		yMax = std::max(yMax, y);
+		zMax = std::max(zMax, z);
+    }
+
+    hexah[0] = Point3d(xMax, yMax, zMax);
+    hexah[1] = Point3d(xMin, yMax, zMax);
+    hexah[2] = Point3d(xMin, yMin, zMax);
+    hexah[3] = Point3d(xMax, yMin, zMax);
+    hexah[4] = Point3d(xMax, yMax, zMin);
+    hexah[5] = Point3d(xMin, yMax, zMin);
+    hexah[6] = Point3d(xMin, yMin, zMin);
+    hexah[7] = Point3d(xMax, yMin, zMin);
+
+    ALICEVISION_LOG_INFO("Estimate space done.");
+}
+
 Voxel Fuser::estimateDimensions(Point3d* vox, Point3d* newSpace, int scale, int maxOcTreeDim, const sfmData::SfMData* sfmData)
 {
     const Point3d O = (vox[0] + vox[1] + vox[2] + vox[3] + vox[4] + vox[5] + vox[6] + vox[7]) / 8.0f;

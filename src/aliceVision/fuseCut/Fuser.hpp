@@ -37,7 +37,7 @@ public:
 
     void divideSpaceFromDepthMaps(Point3d* hexah, float& minPixSize);
     void divideSpaceFromSfM(const sfmData::SfMData& sfmData, Point3d* hexah, std::size_t minObservations = 0, float minObservationAngle = 0.0f) const;
-
+	void divedeSpaceFromPoints(const std::vector<Point3d> &pts, Point3d *hexah);
     /// @brief Compute average pixel size in the given hexahedron
     float computeAveragePixelSizeInHexahedron(Point3d* hexah, int step, int scale);
     float computeAveragePixelSizeInHexahedron(Point3d* hexah, const sfmData::SfMData& sfmData);

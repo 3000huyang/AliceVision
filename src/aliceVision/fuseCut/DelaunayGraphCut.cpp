@@ -24,6 +24,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 
+#include <glog/logging.h>
+
 // OpenMP >= 3.1 for advanced atomic clauses (https://software.intel.com/en-us/node/608160)
 // OpenMP preprocessor version: https://github.com/jeffhammond/HPCInfo/wiki/Preprocessor-Macros
 #if defined _OPENMP && _OPENMP >= 201107 
@@ -2397,7 +2399,8 @@ void DelaunayGraphCut::createDensePointCloudFromDepthMaps(Point3d hexah[8], cons
   addHelperPoints(nGridHelperVolumePointsDim, hexah, minDist);
 }
 
-void DelaunayGraphCut::createDensePointCloudFromSfM(const Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData& sfmData)
+void DelaunayGraphCut::createDensePointCloudFromSfM(const Point3d hexah[8],
+	const StaticVector<int>& cams, const sfmData::SfMData& sfmData)
 {
   // Load tracks
   float minDist = hexah ? (hexah[0] - hexah[1]).size() / 1000.0f : 0.00001f;
@@ -2454,7 +2457,72 @@ void DelaunayGraphCut::createDensePointCloudFromSfM(const Point3d hexah[8], cons
   addHelperPoints(nGridHelperVolumePointsDim, hexah, minDist);
 }
 
-void DelaunayGraphCut::createGraphCut(Point3d hexah[8], const StaticVector<int>& cams, VoxelsGrid* ls, const std::string& folderName, const std::string& tmpCamsPtsFolderName, bool removeSmallSegments, const Point3d& spaceSteps)
+void DelaunayGraphCut::createDensePointCloudFromExternalPoints(
+	const Point3d hexah[8], 
+	const StaticVector<int>& cams,
+	const std::vector<Point3d> &pts,
+	const std::vector<std::vector<int>> &ptsVis,
+	float minDist//µã¼ä¾à
+	)
+{
+	CHECK(pts.size() == ptsVis.size());
+    // Load tracks
+   // float minDist = hexah ? (hexah[0] - hexah[1]).size() / 1000.0f : 0.00001f;
+
+    // add points for cam centers
+    addPointsFromCameraCenters(cams, minDist);
+
+    // add 6 points to prevent singularities
+    addPointsToPreventSingularities(hexah, minDist);
+
+	const std::size_t nbPoints = pts.size();//sfmData.getLandmarks().size();
+    const std::size_t verticesOffset = _verticesCoords.size();
+
+    _verticesCoords.resize(verticesOffset + nbPoints);
+    _verticesAttr.resize(verticesOffset + nbPoints);
+
+    //sfmData::Landmarks::const_iterator landmarkIt = sfmData.getLandmarks().begin();
+    std::vector<Point3d>::iterator vCoordsIt = _verticesCoords.begin();
+    std::vector<GC_vertexInfo>::iterator vAttrIt = _verticesAttr.begin();
+
+    std::advance(vCoordsIt, verticesOffset);
+    std::advance(vAttrIt, verticesOffset);
+
+    for(std::size_t i = 0; i < nbPoints; ++i)
+    {
+       // const sfmData::Landmark& landmark = landmarkIt->second;
+		const Point3d &p = pts[i];
+        //const Point3d p(landmark.X(0), landmark.X(1), landmark.X(2));
+
+        if(mvsUtils::isPointInHexahedron(p, hexah))
+        {
+            *vCoordsIt = p;
+
+			vAttrIt->nrc = ptsVis[i].size();// landmark.observations.size();
+            vAttrIt->cams.reserve(vAttrIt->nrc);
+
+            for(const auto& viewId : ptsVis[i])
+                vAttrIt->cams.push_back(mp->getIndexFromViewId(viewId));
+
+            ++vCoordsIt;
+            ++vAttrIt;
+        }
+    }
+
+    _verticesCoords.shrink_to_fit();
+    _verticesAttr.shrink_to_fit();
+
+    // initialize random seed
+    srand(time(nullptr));
+
+    const int nGridHelperVolumePointsDim = mp->userParams.get<int>("LargeScale.nGridHelperVolumePointsDim", 10);
+
+    // add volume points to prevent singularities
+    addHelperPoints(nGridHelperVolumePointsDim, hexah, minDist);
+}
+
+void DelaunayGraphCut::createGraphCut(Point3d hexah[8], const StaticVector<int>& cams, VoxelsGrid* ls, const std::string& folderName, 
+	const std::string& tmpCamsPtsFolderName, bool removeSmallSegments, const Point3d& spaceSteps)
 {
   initVertices();
 

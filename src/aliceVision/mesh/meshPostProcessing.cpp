@@ -27,6 +27,9 @@ void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& in
 
     bool exportDebug = (float)mp.userParams.get<bool>("delaunaycut.exportDebugGC", false);
 
+#if 1
+	exportDebug = true;
+#endif
     if(exportDebug)
         inout_mesh->saveToObj(debugFolderName + "rawGraphCut.obj");
 

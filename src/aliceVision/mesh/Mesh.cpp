@@ -2470,7 +2470,8 @@ bool Mesh::loadFromObjAscii(int& nmtls, StaticVector<int>& trisMtlIds, StaticVec
                 if((n1 == 3 && n2 == 0) || 
                    (n1 == 6 && n2 == 0) ||
                    (n1 == 0 && n2 == 3) ||
-                   (n1 == 0 && n2 == 0))
+                   (n1 == 0 && n2 == 0)||
+					(n2 == 3))
                     ntris += 1;
                 else if((n1 == 4 && n2 == 0) ||
                         (n1 == 8 && n2 == 0) ||

@@ -318,6 +318,9 @@ public:
 
     void createDensePointCloudFromDepthMaps(Point3d hexah[8], const StaticVector<int>& cams, StaticVector<int>* voxelsIds, VoxelsGrid* ls, const FuseParams& fuseParams);
     void createDensePointCloudFromSfM(const Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData& sfmData);
+	void createDensePointCloudFromExternalPoints(const Point3d hexah[8], const StaticVector<int>& cams, 
+		const std::vector<Point3d>& pts, const std::vector<std::vector<int>>& ptsVis, 
+		float minDist);
     void createGraphCut(Point3d hexah[8], const StaticVector<int>& cams, VoxelsGrid* ls, const std::string& folderName, const std::string& tmpCamsPtsFolderName,
                         bool removeSmallSegments, const Point3d& spaceSteps);
 

@@ -50,16 +50,21 @@ namespace pretty_print
         {
         private:
             template <typename C>
-            static yes & f(typename std::enable_if<
-                std::is_same<decltype(static_cast<typename C::const_iterator(C::*)() const>(&C::begin)),
-                             typename C::const_iterator(C::*)() const>::value>::type *);
+            static yes & f(void *);
+
+			//static yes & f(typename std::enable_if<
+			//	std::is_same<decltype(static_cast<typename C::const_iterator(C::*)() const>(&C::begin)),
+			//	typename C::const_iterator(C::*)() const>::value>::type *);
 
             template <typename C> static no & f(...);
 
+            //template <typename C>
+            //static yes & g(typename std::enable_if<
+            //    std::is_same<decltype(static_cast<typename C::const_iterator(C::*)() const>(&C::end)),
+            //                 typename C::const_iterator(C::*)() const>::value, void>::type*);
+
             template <typename C>
-            static yes & g(typename std::enable_if<
-                std::is_same<decltype(static_cast<typename C::const_iterator(C::*)() const>(&C::end)),
-                             typename C::const_iterator(C::*)() const>::value, void>::type*);
+            static yes & g(void *);
 
             template <typename C> static no & g(...);
 
