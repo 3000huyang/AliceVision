@@ -1,0 +1,1 @@
+#pragma comment(lib, "gdal_i.lib")

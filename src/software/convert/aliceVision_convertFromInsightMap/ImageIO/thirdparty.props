@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <insight_thirdparty>C:\InsightThirdParty</insight_thirdparty>
+    <opencv>F:\opencv\build</opencv>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(INSIGHT_THIRDPARTY)\gdal\include;$(INSIGHT_THIRDPARTY)\include;$(INSIGHT_THIRDPARTY)\include\eigen;../;$(opencv)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(INSIGHT_THIRDPARTY)\gdal-2.1.2\lib;$(INSIGHT_THIRDPARTY)\lib\$(Configuration);$(opencv)\x64\vc12\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>gdal_i.lib;gflags_static.lib;glog.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="insight_thirdparty">
+      <Value>$(insight_thirdparty)</Value>
+    </BuildMacro>
+    <BuildMacro Include="opencv">
+      <Value>$(opencv)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>

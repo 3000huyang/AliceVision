@@ -21,6 +21,8 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include "stlplus3/file_system.hpp"
+#include "glog/logging.h"
 
 // These constants define the current software version.
 // They must be updated when the command line is changed.
@@ -61,6 +63,7 @@ enum ERepartitionMode
     eRepartitionUndefined = 0,
     eRepartitionMultiResolution = 1,
     eRepartitionRegularGrid = 2,
+	eRepartitionExternal = 3,//外部导入点云已经分块好
 };
 
 ERepartitionMode ERepartitionMode_stringToEnum(const std::string& s)
@@ -69,6 +72,8 @@ ERepartitionMode ERepartitionMode_stringToEnum(const std::string& s)
         return eRepartitionMultiResolution;
     if(s == "regularGrid")
         return eRepartitionRegularGrid;
+	if (s == "external")
+		return eRepartitionExternal;
     return eRepartitionUndefined;
 }
 
@@ -80,7 +85,431 @@ inline std::istream& operator>>(std::istream& in, ERepartitionMode& out_mode)
     return in;
 }
 
+struct PtsPair
+{
+    std::pair<int, int> LR;
+    //QFileInfo fileInfo;
+	std::string fileInfo;
+};
 
+#pragma pack(1)
+struct VPointRGB // visit point with color
+{
+    union {
+        struct
+        {
+            float x, y, z, w;
+        };
+        float xyzw[4];
+    };
+    int idx[2];
+    uint8_t rgb[3];
+};
+struct VPoint // visit point with no color
+{
+    union {
+        struct
+        {
+            float x, y, z, w;
+        };
+        float xyzw[4];
+    };
+    int idx[2];
+};
+
+struct XYZ
+{
+    float x, y, z;
+    void makeRGB(float r, float g, float b) {}
+    void sumRGB(float& sumR, float& sumG, float& sumB) {}
+    void setW(float w) {}
+    void setID(int i) {}
+    void setVis(const std::set<int>& vis) {}
+
+    std::ostream& write(std::ostream& os) const
+    {
+        os.write((char*)this, sizeof(XYZ));
+        return os;
+    }
+    std::istream& read(std::istream& is)
+    {
+        is.read((char*)this, sizeof(XYZ));
+        return is;
+    }
+};
+
+struct XYZRGB
+{
+    float x, y, z;
+    uint8_t r, g, b;
+    void makeRGB(float _r, float _g, float _b)
+    {
+        r = static_cast<uint8_t>(_r);
+        g = static_cast<uint8_t>(_g);
+        b = static_cast<uint8_t>(_b);
+    }
+    void sumRGB(float& sumR, float& sumG, float& sumB)
+    {
+        sumR += r;
+        sumG += g;
+        sumB += b;
+    }
+    void setW(float w) {}
+    void setID(int i) {}
+    void setVis(const std::set<int>& vis) {}
+
+    std::ostream& write(std::ostream& os) const
+    {
+        os.write((char*)this, sizeof(XYZRGB));
+        return os;
+    }
+    std::istream& read(std::istream& is)
+    {
+        is.read((char*)this, sizeof(XYZRGB));
+        return is;
+    }
+};
+
+struct XYZW
+{
+    union {
+        struct
+        {
+            float x, y, z, w;
+        };
+        float xyzw[4];
+    };
+    // do nothing,just make template function OK
+    void makeRGB(float r, float g, float b) {}
+    void sumRGB(float& sumR, float& sumG, float& sumB) {}
+    void setW(float _w) { w = _w; }
+    void setID(int i) {}
+    void setVis(const std::set<int>& vis) {}
+};
+
+struct XYZWRGB
+{
+    union {
+        struct
+        {
+            float x, y, z, w;
+        };
+        float xyzw[4];
+    };
+    uint8_t rgb[3];
+    void makeRGB(float r, float g, float b)
+    {
+        rgb[0] = static_cast<uint8_t>(r);
+        rgb[1] = static_cast<uint8_t>(g);
+        rgb[2] = static_cast<uint8_t>(b);
+    }
+    void sumRGB(float& sumR, float& sumG, float& sumB)
+    {
+        sumR += rgb[0];
+        sumG += rgb[1];
+        sumB += rgb[2];
+    }
+    void setW(float _w) { w = _w; }
+    void setID(int i) {}
+    void setVis(const std::set<int>& vis) {}
+};
+
+struct XYZWID : public XYZW
+{
+    int id = 0;
+    void setID(int i) { id = i; }
+};
+
+struct XYZWRGBID : public XYZWRGB
+{
+    int id = 0;
+    void setID(int i) { id = i; }
+};
+
+struct XYZVis : public XYZ
+{
+    std::vector<int> vis;
+    void setVis(const std::set<int>& setvis)
+    {
+        vis.clear();
+        vis.assign(setvis.begin(), setvis.end());
+    }
+
+    std::ostream& write(std::ostream& os) const
+    {
+        os.write((char*)&x, sizeof(float));
+        os.write((char*)&y, sizeof(float));
+        os.write((char*)&z, sizeof(float));
+        int n = vis.size();
+        if(n < 0)
+        {
+            printf("________ERR)R_________\n");
+        }
+        os.write((char*)&n, sizeof(int));
+        if(n > 0)
+        {
+            os.write((char*)vis.data(), sizeof(int) * n);
+        }
+        return os;
+    }
+    std::istream& read(std::istream& is)
+    {
+        is.read((char*)&x, sizeof(float));
+        is.read((char*)&y, sizeof(float));
+        is.read((char*)&z, sizeof(float));
+        int n = 0;
+        is.read((char*)&n, sizeof(int));
+        vis.resize(n);
+        if(n > 0)
+        {
+            is.read((char*)vis.data(), sizeof(int) * n);
+        }
+        return is;
+    }
+};
+
+struct XYZRGBVis : public XYZRGB
+{
+    std::vector<int> vis;
+
+    void setVis(const std::set<int>& setvis)
+    {
+        vis.clear();
+        vis.assign(setvis.begin(), setvis.end());
+    }
+
+    std::ostream& write(std::ostream& os) const
+    {
+        os.write((char*)&x, sizeof(float));
+        os.write((char*)&y, sizeof(float));
+        os.write((char*)&z, sizeof(float));
+        os.write((char*)&r, 1);
+        os.write((char*)&g, 1);
+        os.write((char*)&b, 1);
+        int n = vis.size();
+        os.write((char*)&n, sizeof(int));
+        if(n > 0)
+        {
+            os.write((char*)vis.data(), sizeof(int) * n);
+        }
+        return os;
+    }
+    std::istream& read(std::istream& is)
+    {
+        is.read((char*)&x, sizeof(float));
+        is.read((char*)&y, sizeof(float));
+        is.read((char*)&z, sizeof(float));
+        is.read((char*)&r, 1);
+        is.read((char*)&g, 1);
+        is.read((char*)&b, 1);
+        int n = 0;
+        is.read((char*)&n, sizeof(int));
+        vis.resize(n);
+        if(n > 0)
+        {
+            is.read((char*)vis.data(), sizeof(int) * n);
+        }
+        return is;
+    }
+};
+
+struct Coor
+{
+    int idxL = 0;
+    int d = 0;
+    void makeD(float disparity)
+    {
+        const int SCALE = 1000;
+        d = static_cast<int>(disparity * SCALE);
+    }
+    void getDisparity(float& disparity)
+    {
+        const float SCALE = 0.001;
+        disparity = d * SCALE;
+    }
+};
+
+#pragma pack()
+
+struct MarginCloudHeader
+{
+    size_t totalPoints = 0;
+    size_t marginCount[9];
+    MarginCloudHeader() { memset(this, 0, sizeof(MarginCloudHeader)); }
+};
+
+template <typename T>
+void readCloudWithMargin(const std::string& readCloud, std::vector<T>& marginCloud)
+{
+    MarginCloudHeader header;
+    std::ifstream ifs(readCloud, std::ios::in | std::ios::binary);
+    if(!ifs.is_open())
+    {
+        LOG(ERROR) << "Can't read file " << readCloud;
+    }
+    ifs.read((char*)&header, sizeof(MarginCloudHeader));
+    ifs.close();
+
+    if(header.totalPoints == 0)
+        return;
+    marginCloud.resize(header.totalPoints);
+    int iTotal = 0;
+    for(int i = 0; i < 9; ++i)
+    {
+        std::stringstream ss;
+        ss << readCloud << "_" << i;
+        int nPt = header.marginCount[i];
+        std::ifstream iifs(ss.str(), std::ios::in | std::ios::binary);
+        if(!iifs)
+            continue;
+        for(int j = 0; j < nPt; ++j)
+        {
+            marginCloud[iTotal++].read(iifs);
+        }
+    }
+    marginCloud.resize(iTotal);
+    return;
+
+}
+
+template <typename T>
+void readCloudWithMargin(const std::string& readCloud, 
+	const std::vector<int>& marginIds, std::vector<T>& marginCloud)
+{
+    MarginCloudHeader header;
+    std::ifstream ifs(readCloud, std::ios::in | std::ios::binary);
+    if(!ifs.is_open())
+    {
+        LOG(ERROR) << "Can't read file " << readCloud;
+    }
+    ifs.read((char*)&header, sizeof(MarginCloudHeader));
+    ifs.close();
+    if(header.totalPoints == 0)
+        return;
+    marginCloud.resize(header.totalPoints);
+    int iTotal = 0;
+    for(size_t i = 0; i < marginIds.size(); ++i)
+    {
+        int id = marginIds[i];
+        CHECK(id >= 0 && id <= 8);
+        std::stringstream ss;
+        ss << readCloud << "_" << id;
+        int nPt = header.marginCount[id];
+        std::ifstream iifs(ss.str(), std::ios::in | std::ios::binary);
+        if(!iifs)
+            continue;
+        for(int j = 0; j < nPt; ++j)
+        {
+            marginCloud[iTotal++].read(iifs);
+        }
+    }
+    marginCloud.resize(iTotal);
+}
+
+void findFiles(std::vector<PtsPair>& files, const std::string &path)
+{
+    files.clear();
+    std::string ptsNameFilters;
+
+    std::string file_name;
+    ptsNameFilters = "*.xyzrgbv";
+    file_name = "%d_%d.xyzrgbv";
+
+	std::vector<std::string> find_files = stlplus::folder_files(path);
+	std::vector<std::string> ptsFileList;
+	for (int i = 0; i < find_files.size(); ++i) {
+		if (stlplus::extension_part(find_files[i]) == "xyzrgbv") {
+			ptsFileList.push_back(find_files[i]);
+		}
+	}
+
+    for(int i = 0; i < ptsFileList.size(); ++i)
+    {
+        std::string ss(stlplus::basename_part(ptsFileList[i]));
+        std::pair<int, int> blockKey;
+        sscanf_s(ss.c_str(), file_name.c_str(), &blockKey.first, &blockKey.second);
+        PtsPair p;
+        p.LR = blockKey;
+        p.fileInfo = ptsFileList[i];
+        files.push_back(p);
+    }
+}
+
+void read_bin_file(const std::string &file_path, std::vector<Point3d> &pts, std::vector<std::vector<int>> &ptsVis)
+{
+    clock_t start = clock();
+    clock_t finish = clock();
+//     std::vector<PtsPair> xyzrgbFiles;
+//     findFiles(xyzrgbFiles,path);
+    std::string ss(stlplus::basename_part(file_path));
+    std::pair<int, int> blockKey;
+    std::string file_name;
+    file_name = "%d_%d.xyzrgbv";
+    sscanf_s(ss.c_str(), file_name.c_str(), &blockKey.first, &blockKey.second);
+    PtsPair p;
+    p.LR = blockKey;
+	p.fileInfo = file_path;
+   // finish = clock();
+//#pragma omp parallel for
+  //  for(int i = 0; i < xyzrgbFiles.size(); ++i)
+	std::string path = stlplus::folder_part(file_path);
+    {
+        int X = p.LR.first;
+        int Y = p.LR.second;
+        std::array<int, 8> dx = {-1, 0, 1, -1, 1, -1, 0, 1};
+        std::array<int, 8> dy = {-1, -1, -1, 0, 0, 1, 1, 1};
+        if(X == 1)
+        {
+            dx = {-2, 0, 1, -2, 1, -2, 0, 1};
+        }
+        else if(X == -1)
+        {
+            dx = {-1, 0, 2, -1, 2, -1, 0, 2};
+        }
+        if(Y == 1)
+        {
+            dy = {-2, -2, -2, 0, 0, 1, 1, 1};
+        }
+        else if(Y == -1)
+        {
+            dy = {-1, -1, -1, 0, 0, 2, 2, 2};
+        }
+
+        char buffer[1024];
+        std::vector<int> ids[8] = {{8}, {6, 7, 8}, {6}, {2, 5, 8}, {0, 3, 6}, {2}, {0, 1, 2}, {0}};
+        std::vector<XYZRGBVis> cloud;
+        readCloudWithMargin(p.fileInfo, cloud);
+        for(int dd = 0; dd < 8; ++dd)
+        {
+            int x = X + dx[dd];
+            int y = Y + dy[dd];
+            sprintf_s(buffer, 1024, "%s/%d_%d.xyzrgbv", path.c_str(), x, y);
+            if(stlplus::file_exists(buffer))
+            {
+                std::vector<int> margIds;
+                margIds = ids[dd];
+                std::vector<XYZRGBVis> margPoints;
+                readCloudWithMargin(buffer, margIds, margPoints);
+                for(int j = 0; j < (int)margPoints.size(); ++j)
+                {
+                    cloud.emplace_back(margPoints[j]);
+                }
+            }
+        }
+        //writeLas(LAS_DIR() + "/" + std::to_string(X) + "_" + std::to_string(Y) + ".las", cloud);
+		pts.clear();
+		ptsVis.clear();
+		pts.resize(cloud.size());
+		ptsVis.resize(cloud.size());
+		for (int i = 0; i < cloud.size(); ++i) {
+			pts[i].x = cloud[i].x;
+			pts[i].y = cloud[i].y;
+			pts[i].z = cloud[i].z;
+			ptsVis[i].swap(cloud[i].vis);
+		}
+    }
+    //	findXYZRGBFiles
+}
 int main(int argc, char* argv[])
 {
     system::Timer timer;
@@ -98,7 +527,8 @@ int main(int argc, char* argv[])
     int maxPtsPerVoxel = 6000000;
     bool meshingFromDepthMaps = true;
     bool estimateSpaceFromSfM = true;
-
+	std::string externalCloudPath;
+	double minDist = 0.01;
     fuseCut::FuseParams fuseParams;
 
     po::options_description allParams("AliceVision meshing");
@@ -132,7 +562,11 @@ int main(int argc, char* argv[])
         ("partitioning", po::value<EPartitioningMode>(&partitioningMode)->default_value(partitioningMode),
             "Partitioning: 'singleBlock' or 'auto'.")
         ("repartition", po::value<ERepartitionMode>(&repartitionMode)->default_value(repartitionMode),
-            "Repartition: 'multiResolution' or 'regularGrid'.")
+            "Repartition: 'multiResolution' , 'regularGrid' or 'external'.")
+		("externalCloudPath", po::value<std::string>(&externalCloudPath)->default_value(externalCloudPath),
+				"Input external point cloud file")
+		("minDist", po::value<double>(&minDist)->default_value(minDist),
+				"point distance")
         ("estimateSpaceFromSfM", po::value<bool>(&estimateSpaceFromSfM)->default_value(estimateSpaceFromSfM),
             "Estimate the 3d space from the SfM.");
 
@@ -201,23 +635,29 @@ int main(int argc, char* argv[])
     // set verbose level
     system::Logger::get()->setLogLevel(verboseLevel);
 
-    if(depthMapsFolder.empty() || depthMapsFilterFolder.empty())
-    {
-      if(depthMapsFolder.empty() &&
-         depthMapsFilterFolder.empty() &&
-         repartitionMode == eRepartitionMultiResolution &&
-         partitioningMode == ePartitioningSingleBlock)
-      {
-        meshingFromDepthMaps = false;
-      }
-      else
-      {
-        ALICEVISION_LOG_ERROR("Invalid input options:\n"
-                              "- Meshing from depth maps require --depthMapsFolder and --depthMapsFilterFolder options.\n"
-                              "- Meshing from SfM require option --partitioning set to 'singleBlock' and option --repartition set to 'multiResolution'.");
-        return EXIT_FAILURE;
-      }
-    }
+	if (repartitionMode == eRepartitionExternal) {
+		meshingFromDepthMaps = false;
+	}
+	else {
+        if(depthMapsFolder.empty() || depthMapsFilterFolder.empty())
+        {
+            if(depthMapsFolder.empty() && depthMapsFilterFolder.empty() &&
+               repartitionMode == eRepartitionMultiResolution && partitioningMode == ePartitioningSingleBlock)
+            {
+                meshingFromDepthMaps = false;
+            }
+            else
+            {
+                ALICEVISION_LOG_ERROR(
+                    "Invalid input options:\n"
+                    "- Meshing from depth maps require --depthMapsFolder and --depthMapsFilterFolder options.\n"
+                    "- Meshing from SfM require option --partitioning set to 'singleBlock' and option --repartition "
+                    "set to 'multiResolution'.");
+                return EXIT_FAILURE;
+            }
+        }
+
+	}
 
     // read the input SfM scene
     sfmData::SfMData sfmData;
@@ -231,6 +671,11 @@ int main(int argc, char* argv[])
     mvsUtils::MultiViewParams mp(sfmData, "", depthMapsFolder, depthMapsFilterFolder, meshingFromDepthMaps);
 
     mp.userParams.put("LargeScale.universePercentile", universePercentile);
+#if 1
+    mp.userParams.put("global.LabatutCFG09", true);
+    mp.userParams.put("global.JancosekCVPR11", false);
+    mp.userParams.put("global.JancosekIJCV", false);
+#endif
 
     int ocTreeDim = mp.userParams.get<int>("LargeScale.gridLevel0", 1024);
     const auto baseDir = mp.userParams.get<std::string>("LargeScale.baseDirName", "root01024");
@@ -468,6 +913,51 @@ int main(int argc, char* argv[])
             }
             break;
         }
+		case eRepartitionExternal:
+		{
+            ALICEVISION_LOG_INFO("Meshing mode: external, partitioning: single block.");
+            fuseCut::DelaunayGraphCut delaunayGC(&mp);
+            std::array<Point3d, 8> hexah;
+			StaticVector<int> cams;
+            cams.resize(mp.getNbCameras());
+            for(int i = 0; i < cams.size(); ++i)
+                cams[i] = i;
+            
+            if(cams.empty())
+                throw std::logic_error("No camera to make the reconstruction");
+			std::vector<Point3d > pts;
+			std::vector<std::vector<int>> ptsVis;
+			read_bin_file(externalCloudPath, pts, ptsVis);
+			fuseCut::Fuser fs(&mp);
+			fs.divedeSpaceFromPoints(pts, &hexah[0]);
+			//float minDist = 0.1;
+			delaunayGC.createDensePointCloudFromExternalPoints(&hexah[0], cams,pts,ptsVis,minDist);
+			Point3d spaceSteps(2 * minDist, 2*  minDist,2 * minDist);
+            delaunayGC.createGraphCut(&hexah[0], cams, nullptr, outDirectory.string() + "/",
+                                      outDirectory.string() + "/SpaceCamsTracks/", false, spaceSteps);
+            delaunayGC.graphCutPostProcessing();
+
+            // Save mesh as .bin and .obj
+            mesh::Mesh* mesh = delaunayGC.createMesh();
+            if(mesh->pts->empty() || mesh->tris->empty())
+                throw std::runtime_error("Empty mesh");
+
+            StaticVector<StaticVector<int>*>* ptsCams = delaunayGC.createPtsCams();
+            StaticVector<int> usedCams = delaunayGC.getSortedUsedCams();
+
+            StaticVector<Point3d>* hexahsToExcludeFromResultingMesh = nullptr;
+            mesh::meshPostProcessing(mesh, ptsCams, usedCams, mp, outDirectory.string() + "/",
+                                     hexahsToExcludeFromResultingMesh, &hexah[0]);
+            mesh->saveToBin((outDirectory / "denseReconstruction.bin").string());
+
+            saveArrayOfArraysToFile<int>((outDirectory / "meshPtsCamsFromDGC.bin").string(), ptsCams);
+            deleteArrayOfArrays<int>(&ptsCams);
+
+            mesh->saveToObj(outputMesh);
+
+            delete mesh;
+            break;
+		}
         case eRepartitionUndefined:
         default:
             throw std::invalid_argument("Repartition mode is not defined");

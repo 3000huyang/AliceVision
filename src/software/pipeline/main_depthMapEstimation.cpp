@@ -30,6 +30,7 @@ namespace po = boost::program_options;
 
 int main(int argc, char* argv[])
 {
+	std::cout << "depthmapEstimation" << std::endl;
     system::Timer timer;
 
     std::string verboseLevel = system::EVerboseLevel_enumToString(system::Logger::getDefaultVerboseLevel());
@@ -128,10 +129,11 @@ int main(int argc, char* argv[])
     try
     {
       po::store(po::parse_command_line(argc, argv, allParams), vm);
-
+	  std::cout << allParams;
       if(vm.count("help") || (argc == 1))
       {
         ALICEVISION_COUT(allParams);
+		
         return EXIT_SUCCESS;
       }
 
@@ -156,7 +158,7 @@ int main(int argc, char* argv[])
     // set verbose level
     system::Logger::get()->setLogLevel(verboseLevel);
 
-    // print GPU Information
+    // print GPU InformationapsM
     ALICEVISION_LOG_INFO(gpu::gpuInformationCUDA());
 
     // check if the gpu suppport CUDA compute capability 2.0

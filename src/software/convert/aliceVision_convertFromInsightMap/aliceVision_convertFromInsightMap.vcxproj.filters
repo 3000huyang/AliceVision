@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{7b61e429-1997-4e45-80dc-4a2e1a276c67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Stlplus">
+      <UniqueIdentifier>{ea4d6e80-f9c5-483d-93b8-623df5aa4c63}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Project">
+      <UniqueIdentifier>{20aa161d-3076-4655-888e-9a10a5c7a8bb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stlplus3\file_system.hpp">
+      <Filter>Stlplus</Filter>
+    </ClInclude>
+    <ClInclude Include="stlplus3\portability_fixes.hpp">
+      <Filter>Stlplus</Filter>
+    </ClInclude>
+    <ClInclude Include="stlplus3\wildcard.hpp">
+      <Filter>Stlplus</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskList\db_types.h">
+      <Filter>Project</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskList\Project.h">
+      <Filter>Project</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\string_utils.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="aliceVision_convertFromInsightMap.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="stlplus3\file_system.cpp">
+      <Filter>Stlplus</Filter>
+    </ClCompile>
+    <ClCompile Include="stlplus3\portability_fixes.cpp">
+      <Filter>Stlplus</Filter>
+    </ClCompile>
+    <ClCompile Include="stlplus3\wildcard.cpp">
+      <Filter>Stlplus</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskList\db_types.cpp">
+      <Filter>Project</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskList\Project.cpp">
+      <Filter>Project</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\string_utils.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
