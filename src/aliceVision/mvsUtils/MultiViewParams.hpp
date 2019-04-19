@@ -63,11 +63,11 @@ enum class EFileType {
     depthMap = 35,
     simMap = 36,
     mapPtsTmp = 37,
-    depthMapInfo = 38,
     camMap = 39,
     mapPtsSimsTmp = 40,
     nmodMap = 41,
     D = 42,
+    normalMap = 43,
 };
 
 class MultiViewParams

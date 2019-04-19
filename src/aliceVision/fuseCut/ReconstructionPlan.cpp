@@ -277,16 +277,15 @@ void reconstructSpaceAccordingToVoxelsArray(const std::string& voxelsArrayFileNa
             if(cams.empty())
                 throw std::logic_error("No camera to make the reconstruction");
 
-            delaunayGC.createDensePointCloudFromDepthMaps(hexah, cams, voxelsIds, (VoxelsGrid*)rp, FuseParams());
-            delaunayGC.createGraphCut(hexah, cams, (VoxelsGrid*)rp, folderName, ls->getSpaceCamsTracksDir(), false, ls->getSpaceSteps());
+            delaunayGC.createDensePointCloudFromPrecomputedDensePoints(hexah, cams, voxelsIds, (VoxelsGrid*)rp);
+            delaunayGC.createGraphCut(hexah, cams,(VoxelsGrid*)rp, folderName, ls->getSpaceCamsTracksDir(), false, ls->getSpaceSteps());
             delete voxelsIds;
 
             // Save mesh as .bin and .obj
             mesh::Mesh* mesh = delaunayGC.createMesh();
             StaticVector<StaticVector<int>*>* ptsCams = delaunayGC.createPtsCams();
-            StaticVector<int> usedCams = delaunayGC.getSortedUsedCams();
 
-            mesh::meshPostProcessing(mesh, ptsCams, usedCams, *ls->mp, folderName, hexahsToExcludeFromResultingMesh, hexah);
+            mesh::meshPostProcessing(mesh, ptsCams, *ls->mp, folderName, hexahsToExcludeFromResultingMesh, hexah);
             mesh->saveToBin(folderName + "mesh.bin");
             mesh->saveToObj(folderName + "mesh.obj");
 

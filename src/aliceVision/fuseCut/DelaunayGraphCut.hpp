@@ -248,8 +248,8 @@ public:
     StaticVector<int> getIsUsedPerCamera() const;
     StaticVector<int> getSortedUsedCams() const;
 
+    void addPointsFromSfM(const Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData& sfmData);
     void addPointsFromCameraCenters(const StaticVector<int>& cams, float minDist);
-
     void addPointsToPreventSingularities(const Point3d Voxel[], float minDist);
 
     /**
@@ -316,8 +316,10 @@ public:
                                 bool update, Point3d hexahInflated[8], const std::string& tmpCamsPtsFolderName,
                                 const Point3d& spaceSteps);
 
-    void createDensePointCloudFromDepthMaps(Point3d hexah[8], const StaticVector<int>& cams, StaticVector<int>* voxelsIds, VoxelsGrid* ls, const FuseParams& fuseParams);
-    void createDensePointCloudFromSfM(const Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData& sfmData);
+
+    void createDensePointCloud(Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData* sfmData, const FuseParams* depthMapsFuseParams);
+    void createDensePointCloudFromPrecomputedDensePoints(Point3d hexah[8], const StaticVector<int>& cams, StaticVector<int>* voxelsIds, VoxelsGrid* ls);
+
 	void createDensePointCloudFromExternalPoints(const Point3d hexah[8], const StaticVector<int>& cams, 
 		const std::vector<Point3d>& pts, const std::vector<std::vector<int>>& ptsVis, 
 		float minDist);
